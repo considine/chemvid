@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Snake Game</title>
+	<style>
+	canvas {
+		display: block;
+		position: absolute;
+		border: 1px solid #000;
+		margin: auto;
+		top: 0;
+		bottom: 0;
+		right: 0;
+		left: 0;
+	}	
+	</style>
+</head>
+<body>
+<script>
+var WIDTH = 700, HEIGHT = 600;
+var key_left=37, key_right=39, key_up=38, key_down=40;
+var canvas, keystate, ctx;
+
+var player= {
+	x: null,
+	y: null,
+	w: 10,
+	h: 10,
+
+	update: function(){
+		if (keystate[key_up]) this.y -= 5;
+		if (keystate[key_down]) this.y += 5;
+		if (keystate[key_left]) this.x -= 5;
+		if (keystate[key_right]) this.x += 5;
+	},
+
+	draw: function(){
+		ctx.fillRect(this.x, this.y, this.w, this.h)
+	}
+
+};
+var barrierList = []
+function Barrier(){
+	this.x = 10 //barrierList.indexOf(this)*this.w +50;
+	this.y = 20//20*barrierList.indexOf(this);
+	this.w = 150;
+	this.h = 10;
+	this.speed = 3;
+	this.list = function(){
+		barrierList.push(this)
+	};
+	this.list(),
+
+
+	this.update = function(){
+		if (0<this.x && this.x<700) this.x += this.speed;
+
+		if(this.x <= 0 || this.x>=600) {
+			this.speed *= -1;
+			this.x += this.speed;
+		}
+	},
+
+	this.draw = function(){
+		ctx.fillRect(this.x, this.y, this.w, this.h)
+	}
+
+};
+
+var barrier0 = new Barrier()
+var barrier1 = new Barrier()
+var barrier2 = new Barrier()
+var barrier3 = new Barrier()
+
+
+function main(){
+	canvas = document.createElement("canvas");
+	canvas.width = WIDTH;
+	canvas.height = HEIGHT;
+	ctx = canvas.getContext("2d");
+	document.body.appendChild(canvas);
+
+	keystate= {}
+	document.addEventListener("keydown", function(evt){
+		keystate[evt.keyCode] = true;
+	});
+	document.addEventListener("keyup", function(evt){
+		delete keystate[evt.keyCode];
+	});
+
+	init();
+	var loop = function(){
+		update();
+		draw();
+		window.requestAnimationFrame(loop, canvas);
+	}
+	window.requestAnimationFrame(loop, canvas);
+	loop();
+}
+
+function init(){
+	player.x = 350;
+	player.y = 550;
+
+}
+
+function update(){
+	player.update();
+	
+	barrier0.update();
+	barrier1.update();
+	barrier2.update();
+	barrier3.update();
+}
+
+function returnBarrierList(){
+	for (i = barrierList.length +1; i>0; i--)
+		return barrierList[i];
+}
+
+function draw(){
+	ctx.fillRect(0, 0, WIDTH, HEIGHT);
+ 	ctx.save();
+ 	ctx.fillStyle = "#fff";
+ 	ctx.fillText(returnBarrierList(),300,300);
+ 	
+	player.draw();
+	
+	barrier0.draw();
+	barrier1.draw();
+	barrier2.draw();
+	barrier3.draw();
+
+
+	ctx.restore();
+}
+
+
+main();
+</script>
+</body>
+</html>

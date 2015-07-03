@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<Title>Pong</Title>
+
+	<!-- Basic styling and centering the canvas-->
+	<style>
+	canvas {
+		display:block;
+		position: absolute;
+		margin: auto;
+		top:0;
+		right:0;
+		bottom:0;
+		left:0;
+	}
+
+	svg: hover {
+		opacity: 1;
+		line: blue;
+	}
+	</style>
+</head>
+<body>
+<script>
+/* Scoreboad 
+ _    0
+|_|  1,2,3
+|_|  4,5,6 
+
+so to get the number 1, you need bars 3 and 6 visible 
+which gives 0 001 001 */
+var NUMS = [
+	"1 101 111",
+	"0 001 001",
+	"1 011 110",
+	"1 011 011",
+	"0 111 001",
+	"1 110 011",
+	"1 110 111",
+	"1 001 001",
+	"1 111 111",
+	"1 111 011"
+],
+POINTS = [
+	[0, 0, 1, 0],
+	[0, 0, 0, 1],
+	[0, 1, 1, 1],
+	[1, 0, 1, 1],
+	[0, 1, 0, 2],
+	[0, 2, 1, 2],
+	[1, 1, 1, 2]
+];
+// convert the strings in NUMS to a boolean array
+for (var i = 0; i < NUMS.length; i++){
+	var n = NUMS[i].replace(/\s+/g, "");
+	NUMS[i] = (function(){
+		var l = [];
+		for (var j = 0; j < n.length; j++){
+			l.push(n[j] === "1");
+		}
+		return l;
+	})();
+}
+function pad(str, padding, width) {
+	return (new Array(width||2).join(padding||0)+str).slice(-width)
+}
+
+function drawNumber(n, x, y, ralign) {
+	n = n.toString(); // convert to string => possible to loop thru all digits
+	var size = 32,
+		padding = 16;
+	
+	ctx.save();
+	ctx.strokeStyle = "#fff";
+	ctx.lineCap = "square";
+	ctx.lineWidth = padding/2;
+	if (ralign) { // if right aligned move x coord accordingly
+		x -= (n.length*(padding+size)-padding);
+	}
+	ctx.translate(x, y);
+	for (var i = 0; i < n.length; i++) {
+		var num = NUMS[parseInt(n[i])];
+		
+		ctx.beginPath();
+		for (var j = 0; j < num.length; j++) {
+			if (num[j]) {
+				var p = POINTS[j];
+				ctx.moveTo(p[0]*size, p[1]*size);
+				ctx.lineTo(p[2]*size, p[3]*size);
+			}
+		}
+		ctx.closePath();
+		ctx.stroke();
+		// fix anoying bug
+		var p2 = padding/2,
+			p4 = padding/4;
+		ctx.fillRect(size - p4, 2*size - p4, p2, p2);
+		ctx.translate(size+padding, 0);
+	}
+	ctx.restore();
+}
+
+//setting the constants and declaring the game elements
+var WIDTH = 700, HEIGHT= 600, pi = Math.PI;
+var UpArrow = 38, DownArrow = 40;
+var canvas, ctx, keystate;
+var player, ai, ball;
+
+player = {
+	x: null,
+	y: null,
+	score: null,
+	width: 20,
+	height: 100,
+
+
+	//updates the position depending on which key is pressed
+	update: function(){
+		if (keystate[UpArrow]) this.y -= 5;
+		if (keystate[DownArrow]) this.y += 5;
+
+		this.y = Math.max(Math.min(this.y, HEIGHT - this.height),0);
+	},
+
+	//draws the player's paddle in the canvas
+	draw:function(){
+		ctx.fillRect(this.x, this.y, this.width, this.height)
+	}
+},
+
+//the computer's paddle (ai)
+ai = {
+	x:null,
+	y:null,
+	score: null,
+	width: 20,
+	height: 100,
+	
+
+	//the ai position updates depending on the ball's position
+	update: function(){
+		//calculates the ideal position
+		var desty = ball.y - (this.height - ball.side)*0.5;
+		//ease the movement towards the ideal position
+		this.y += (desty - this.y)*0.08;
+		//keeps the paddle inside the canvas
+		this.y = Math.max(Math.min(this.y, HEIGHT - this.height),0);
+	},
+
+	//draws the ai paddle
+	draw:function(){
+		ctx.fillRect(this.x, this.y, this.width, this.height)
+	}
+},
+
+ball = {
+	x:null,
+	y:null,
+	vel: null,
+	
+	side: 20,
+	speed: 7,
+	
+	/*serves the ball to the specified side. If side = 1, it serves to the right, and if side = -1, the ball is served to the left*/
+	serve: function(side){
+		//set the x and y positions
+		var r = Math.random();
+		this.x = side === 1 ? player.x + player.width : ai.x - this.side;
+		this.y = (HEIGHT - this.side)*r;
+
+		/*calculate the out-angle (just the angle it is served at). The higher or lower it is means a steeper angle*/
+		var phi = 0.1*pi*(1-2*r);
+		//set velocity direction and magnitude
+		this.vel = {
+			x: side*this.speed*Math.cos(phi),
+			y: this.speed*Math.sin(phi)
+		}
+	},
+	// update the  ball's position and keep it within the canvas
+	update: function(){
+		this.x += this.vel.x;
+		this.y += this.vel.y;
+
+		if (0 > this.y || this.y + this.side > HEIGHT){
+			/* calculate and add the right offset, ie how far inside of the canvas the ball is */
+			var offset = this.vel.y < 0 ? 0 - this.y : HEIGHT - (this.y + this.side);
+			this.y += 2*offset;
+			// mirror the y velocity
+			this.vel.y *= -1;
+		}
+		/* this is a helper function to check the intersection between 2 boxes */
+		var AABBIntersect = function(ax, ay, aw, ah, bx, by, bw, bh){
+			return ax < bx+bw && ay < by + bh && bx < ax + aw && by < ay+ah;
+		}
+		/* check against the target paddle to check for a collision in the x direction */
+		var pdle = this.vel.x < 0 ? player : ai;
+		if (AABBIntersect(pdle.x, pdle.y, pdle.width, pdle.height, this.x, this.y, this.side, this.side)){
+			//set the x position and calculate the relection angle
+			this.x = pdle === player ? player.x + player.width : ai.x - this.side;
+			var n = (this.y + this.side - pdle.y)/(pdle.height + this.side);
+			var phi = 0.25*pi*(2*n - 1); // pi/4 = 45
+			/*calculate the smash (when the ball hits the bottom of the paddle) and then update the ball's velocity */
+			var smash = Math.abs(phi) > 0.2*pi ? 1.5 : 1;
+			this.vel.x =smash*(pdle===player ? 1 : -1)*this.speed*Math.cos(phi);
+			this.vel.y = smash*this.speed*Math.sin(phi);
+		}
+
+		/* reset the ball when outside of the canvas in the x direction */
+		if (0 > this.x+this.side || this.x > WIDTH) {
+			var isplayer = pdle === player;
+			this.serve(isplayer ? 1 : -1);
+
+			player.score += isplayer ? 0:1;
+			ai.score += isplayer ? 1:0;
+		}
+	},
+	
+	//draw the ball
+	draw:function(){
+		ctx.fillRect(this.x, this.y, this.side, this.side)
+	}
+};
+
+
+function main(){
+	// create, initiate, and append the game canvas
+	canvas = document.createElement("canvas");
+	canvas.width = WIDTH;
+	canvas.height = HEIGHT;
+	ctx = canvas.getContext("2d");
+	document.body.appendChild(canvas);
+
+	//keep track of keyboard presses
+	keystate = {};
+	document.addEventListener("keydown", function(evt){
+		keystate[evt.keyCode] = true;
+	});
+	document.addEventListener("keyup", function(evt){
+		delete keystate[evt.keyCode];
+	});
+
+	init(); //initiate game objects
+	// game loop
+	var loop = function(){
+		update();
+		draw();
+
+		window.requestAnimationFrame(loop, canvas);
+	};
+	window.requestAnimationFrame(loop, canvas);
+
+	loop();
+}
+
+//Initiate game objects and set start positions
+function init(){
+	player.x = player.width;
+	player.y= (HEIGHT - player.height)/2;
+	player.score = 0
+
+	ai.x = WIDTH - (player.width + ai.width);
+	ai.y = (HEIGHT - ai.height)/2;
+	ai.score= 0;
+
+	ball.serve(1);
+}
+
+// update all game objects
+function update(){
+	ball.update();
+	player.update();
+	ai.update();
+}
+
+
+//clear canvas and draw all game objects and net
+ function draw(){
+ 	ctx.fillRect(0, 0, WIDTH, HEIGHT);
+ 	ctx.save();
+ 	ctx.fillStyle = "#fff";
+
+ 	ball.draw();
+ 	player.draw();
+ 	ai.draw();
+
+ 	// draw the net
+ 	var w = 4;
+ 	var x = (WIDTH - w)*0.5;
+ 	var y= 0;
+ 	var step = HEIGHT/20; // how many net segments
+ 	while (y < HEIGHT){
+ 		ctx.fillRect(x, y+step*0.25, w, step*0.5);
+ 		y += step;
+	}
+	//draw the scores
+	var w2 = WIDTH/2;
+	drawNumber(pad(player.score), w2-40, 20, true);
+	drawNumber(pad(ai.score), w2+40, 20);
+
+ 	ctx.restore();
+}
+
+// start and run the game
+main();
+</script>
+</body>
+</html>
