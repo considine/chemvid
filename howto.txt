@@ -1,0 +1,11 @@
+1.) Install github on desktop
+2.) Go to online repo and copy code
+
+NOTE PuTty = terminal ( a little different ).
+
+3.) git add <filename>
+git commit -m "<any comment about this update>"
+git push -> sends updates
+
+should note to recieve updates -> git pull.  
+,
